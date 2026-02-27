@@ -1,0 +1,10 @@
+# secrets
+app_secrets.py
+secrets.py
+*.env
+.venv/
+__pycache__/
+*.pyc
+.idea/
+
+
