@@ -57,9 +57,4 @@ Click **Refresh Data** on the dashboard to run the full pipeline:
 | `/api/anomalies` | GET | Anomaly list |
 | `/api/stats` | GET | Summary statistics |
 
-## Color Coding
 
-- **Green** — undervalued (calculated price > market price, Δ > 5%)
-- **Red** — overvalued (calculated price < market price, Δ > 5%)
-- **Yellow** — special features (floating coupon, amortization, offer date)
-- **Neutral** — within normal range
