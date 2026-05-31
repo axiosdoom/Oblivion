@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Anomalies — Oblivion{% endblock %}
+
+{% block content %}
+<h4>Anomalies Detected: {{ total_count }}</h4>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if not selected_type %}active{% endif %}" href="/anomalies">
+            All <span class="badge bg-secondary">{{ total_count }}</span>
+        </a>
+    </li>
+    {% for code in ["P+", "Y+", "C+", "P+Y+"] %}
+    <li class="nav-item">
+        <a class="nav-link {% if selected_type == code %}active{% endif %}" href="/anomalies?anomaly_type={{ code | urlencode }}">
+            {{ code }}
+            <span class="badge {% if code == 'P+Y+' %}bg-success{% elif code == 'P+' %}bg-warning text-dark{% elif code == 'Y+' %}bg-info text-dark{% elif code == 'C+' %}bg-primary{% else %}bg-dark{% endif %}">
+                {{ type_counts.get(code, 0) }}
+            </span>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+
+{% if bonds_vals %}
+<div class="table-responsive">
+    <table class="table table-sm table-hover table-bordered">
+        <thead class="table-dark">
+            <tr>
+                <th>Bond</th>
+                <th>Rating</th>
+                <th>Anomaly</th>
+                <th>Δ Price %</th>
+                <th>Δ Yield %</th>
+                <th>Δ Curve z</th>
+                <th>YTM %</th>
+                <th>Duration</th>
+                <th>Color</th>
+                <th>Yield</th>
+                <th>Basket</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for bond, val in bonds_vals %}
+            <tr class="{% if val.color == 'green' %}color-green{% elif val.color == 'red' %}color-red{% elif val.color == 'yellow' %}color-yellow{% endif %}">
+                <td><a href="/bond/{{ bond.id }}">{{ bond.name }}</a></td>
+                <td>{{ bond.rating or '-' }}</td>
+                <td>
+                    <span class="badge {% if val.anomaly_code == 'P+Y+' %}bg-success{% elif val.anomaly_code == 'P+' %}bg-warning text-dark{% elif val.anomaly_code == 'Y+' %}bg-info text-dark{% elif val.anomaly_code == 'C+' %}bg-primary{% else %}bg-dark{% endif %}">
+                        {{ val.anomaly_code }}
+                    </span>
+                </td>
+                <td><strong>{{ "%.1f"|format(val.delta_price) if val.delta_price is not none else '-' }}</strong></td>
+                <td>{{ "%+.2f"|format(val.delta_yield) if val.delta_yield is not none else '-' }}</td>
+                <td>{{ "%.1f"|format(val.delta_curve_zscore) if val.delta_curve_zscore is not none else '-' }}</td>
+                <td>{{ "%.1f"|format(bond.ytm_percent) if bond.ytm_percent else '-' }}</td>
+                <td>{{ "%.2f"|format(bond.duration_years) if bond.duration_years else '-' }}</td>
+                <td>{{ val.color or '-' }}</td>
+                <td>
+                    {% if val.yield_symbol %}
+                        {% if '↑' in val.yield_symbol %}<span class="yield-symbol yield-up">{{ val.yield_symbol }}</span>
+                        {% elif '↓' in val.yield_symbol %}<span class="yield-symbol yield-down">{{ val.yield_symbol }}</span>
+                        {% else %}<span class="yield-symbol yield-neutral">{{ val.yield_symbol }}</span>{% endif %}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if val.basket_id %}
+                    <a href="/basket/{{ val.basket_id }}">View</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">
+    No anomalies detected{% if selected_type %} of type {{ selected_type }}{% endif %}.
+    {% if total_count == 0 %}Run the pipeline first to detect anomalies.{% endif %}
+</div>
+{% endif %}
+{% endblock %}

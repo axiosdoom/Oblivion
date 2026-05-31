@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Oblivion{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Sidebar filters -->
+    <div class="col-lg-2 col-md-3 mb-3">
+        <div class="card filter-section">
+            <div class="card-header bg-primary text-white fw-bold">Filters</div>
+            <div class="card-body p-2">
+                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">Basket</label>
+                    <select id="filter-basket" class="form-select form-select-sm" onchange="applyFilters()">
+                        <option value="">All bonds</option>
+                        {% for b in baskets %}
+                        <option value="{{ b.id }}" {% if selected_basket_id == b.id %}selected{% endif %}>
+                            {{ b.name }} ({{ b.bond_count }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">Sort by</label>
+                    <select id="filter-sort" class="form-select form-select-sm" onchange="applyFilters()">
+                        <option value="delta_price">Δ Price</option>
+                        <option value="delta_yield">Δ Yield</option>
+                        <option value="risk_adjusted_yield" selected>Risk-Adj Yield</option>
+                        <option value="duration">Duration</option>
+                        <option value="delta_curve">Δ Curve</option>
+                        <option value="ytm">YTM</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">Min YTM %</label>
+                    <input type="number" id="filter-min-ytm" class="form-control form-control-sm"
+                           step="0.5" placeholder="e.g. 15">
+                </div>
+                <div class="form-check mb-2">
+                    <input type="checkbox" class="form-check-input" id="filter-anomaly" onchange="applyFilters()">
+                    <label class="form-check-label small" for="filter-anomaly">Anomalies only</label>
+                </div>
+                <button class="btn btn-sm btn-outline-primary w-100 mb-2" onclick="applyFilters()">Apply</button>
+                <hr class="my-2">
+                <button class="btn btn-sm btn-success w-100" onclick="runPipeline()">
+                    ⟳ Refresh Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="col-lg-10 col-md-9">
+        <!-- Summary stats -->
+        {% if stats.bond_count > 0 %}
+        <div class="row mb-3">
+            <div class="col">
+                <div class="card stat-card p-2 text-center">
+                    <div class="small text-muted">Bonds</div>
+                    <div class="fw-bold fs-5">{{ stats.bond_count }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card p-2 text-center">
+                    <div class="small text-muted">Baskets</div>
+                    <div class="fw-bold fs-5">{{ stats.basket_count }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card p-2 text-center">
+                    <div class="small text-muted">Anomalies</div>
+                    <div class="fw-bold fs-5 text-danger">{{ stats.anomaly_count }}</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card p-2 text-center">
+                    <div class="small text-muted">Key Rate</div>
+                    <div class="fw-bold fs-5">{{ "%.1f"|format(stats.key_rate * 100) if stats.key_rate else "N/A" }}%</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if stats.bond_count == 0 %}
+        <div class="alert alert-info">
+            <h5>Welcome to Oblivion Bond Analyzer</h5>
+            <p>No bond data yet. Click <strong>Refresh Data</strong> to scrape SmartLab, fetch Tinkoff prices, and run the full analysis pipeline.</p>
+            <button class="btn btn-success" onclick="runPipeline()">⟳ Refresh Data</button>
+        </div>
+        {% else %}
+        <!-- Bond table -->
+        <div class="table-responsive">
+            <table class="table table-sm table-hover table-bordered" id="bond-table">
+                <thead class="table-dark">
+                    <tr>
+                        <th onclick="sortTable(0)" title="Bond name, click to sort">Name</th>
+                        <th onclick="sortTable(1)" title="Credit rating (AAA to D)">Rating</th>
+                        <th onclick="sortTable(2)" title="Years to maturity">Years</th>
+                        <th onclick="sortTable(3)" title="Current price as % of nominal value">Price %</th>
+                        <th onclick="sortTable(4)" title="Theoretical value from DCF model (rubles)">Calc Price ₽</th>
+                        <th onclick="sortTable(5)" title="Real-time market price from Tinkoff (rubles)">Market ₽</th>
+                        <th onclick="sortTable(6)" title="Price deviation: |Calculated - Market|/Market. >10% = P+ anomaly">Δ Price %</th>
+                        <th onclick="sortTable(7)" title="Yield to Maturity (annual)">YTM %</th>
+                        <th onclick="sortTable(8)" title="Yield deviation from basket average. >1% = Y+ anomaly">Δ Yield %</th>
+                        <th title="Yield symbol: ↑↑ (>1%), ↑ (0.5-1%), → (±0.5%), ↓ (-0.5 to -1%), ↓↓ (<-1%)">Yield</th>
+                        <th onclick="sortTable(10)" title="Modified duration in years (price sensitivity to rate changes)">Duration</th>
+                        <th onclick="sortTable(11)" title="Deviation from fitted yield curve. |z|>2.5 = C+ anomaly">Δ Curve</th>
+                        <th onclick="sortTable(12)" title="Risk-adjusted yield: (YTM - key rate) / risk premium. Higher = better">Risk-Adj</th>
+                        <th title="Anomaly codes: P+Y+ (green, best signal), P+ (yellow, price), Y+ (blue, yield), C+ (dark blue, curve), R (gray, conflicting)">Anomaly</th>
+                        <th title="Comparison basket (rating × maturity group)">Basket</th>
+                    </tr>
+                </thead>
+                <tbody id="bond-tbody">
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let bondData = [];
+
+function loadBonds() {
+    const params = new URLSearchParams();
+    const basketId = document.getElementById('filter-basket').value;
+    const sortBy = document.getElementById('filter-sort').value;
+    const minYtm = document.getElementById('filter-min-ytm').value;
+    const anomalyOnly = document.getElementById('filter-anomaly').checked;
+
+    if (basketId) params.set('basket_id', basketId);
+    if (sortBy) params.set('sort_by', sortBy);
+    params.set('sort_dir', 'desc');
+    if (minYtm) params.set('min_ytm', minYtm);
+    if (anomalyOnly) params.set('anomaly_only', 'true');
+
+    fetch('/api/bonds?' + params.toString())
+        .then(r => r.json())
+        .then(data => {
+            bondData = data;
+            renderTable(data);
+        });
+}
+
+function renderTable(data) {
+    const tbody = document.getElementById('bond-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    data.forEach(item => {
+        const b = item.bond;
+        const v = item.valuation;
+        const tr = document.createElement('tr');
+
+        const color = v ? v.color : 'neutral';
+        if (color === 'green') tr.classList.add('color-green');
+        else if (color === 'red') tr.classList.add('color-red');
+        else if (color === 'yellow') tr.classList.add('color-yellow');
+
+        const calcPrimary = v && v.calc_primary ? v.calc_primary.toFixed(2) : '-';
+        const marketRub = v && v.market_price_rub ? v.market_price_rub.toFixed(2) : '-';
+        const deltaPrice = v && v.delta_price != null ? v.delta_price.toFixed(1) : '-';
+        const deltaYield = v && v.delta_yield != null ? (v.delta_yield > 0 ? '+' : '') + v.delta_yield.toFixed(2) : '-';
+        const deltaCurve = v && v.delta_curve != null ? v.delta_curve.toFixed(2) : '-';
+        const riskAdj = v && v.risk_adjusted_yield != null ? v.risk_adjusted_yield.toFixed(2) : '-';
+
+        let yieldSym = v && v.yield_symbol ? v.yield_symbol : '→';
+        let yieldClass = 'yield-neutral';
+        if (yieldSym.includes('↑')) yieldClass = 'yield-up';
+        else if (yieldSym.includes('↓')) yieldClass = 'yield-down';
+
+        let anomalyBadge = '';
+        if (v && v.anomaly_code) {
+            let cls = 'bg-secondary';
+            if (v.anomaly_code === 'P+Y+') cls = 'bg-success';      // зелёный — лучший сигнал (и цена, и доходность)
+            else if (v.anomaly_code === 'P+') cls = 'bg-warning';   // жёлтый — цена аномальна, но смотреть шире
+            else if (v.anomaly_code === 'Y+') cls = 'bg-info';       // голубой — хорошая доходность
+            else if (v.anomaly_code === 'C+') cls = 'bg-primary';    // синий — аномалия кривой (технический сигнал)
+            else if (v.anomaly_code === 'R') cls = 'bg-secondary';   // серый — требует анализа
+            anomalyBadge = `<span class="badge ${cls} badge-anomaly">${v.anomaly_code}</span>`;
+        }
+
+        tr.innerHTML = `
+            <td><a href="/bond/${b.id}">${b.name}</a></td>
+            <td>${b.rating || '-'}</td>
+            <td>${b.years_to_maturity != null ? b.years_to_maturity.toFixed(1) : '-'}</td>
+            <td>${b.price_percent != null ? b.price_percent.toFixed(1) : '-'}</td>
+            <td>${calcPrimary}</td>
+            <td>${marketRub}</td>
+            <td><strong>${deltaPrice}</strong></td>
+            <td>${b.ytm_percent != null ? b.ytm_percent.toFixed(1) : '-'}</td>
+            <td>${deltaYield}</td>
+            <td><span class="yield-symbol ${yieldClass}">${yieldSym}</span></td>
+            <td>${b.duration_years != null ? b.duration_years.toFixed(2) : '-'}</td>
+            <td>${deltaCurve}</td>
+            <td>${riskAdj}</td>
+            <td>${anomalyBadge}</td>
+            <td>${item.basket_name || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function applyFilters() {
+    loadBonds();
+}
+
+let sortCol = -1;
+let sortAsc = false;
+function sortTable(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+
+    const tbody = document.getElementById('bond-tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a, b) => {
+        const aVal = a.cells[col].textContent.trim();
+        const bVal = b.cells[col].textContent.trim();
+        const aNum = parseFloat(aVal.replace(/[+%]/g, ''));
+        const bNum = parseFloat(bVal.replace(/[+%]/g, ''));
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+            return sortAsc ? aNum - bNum : bNum - aNum;
+        }
+        return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+}
+
+// Load on page init
+document.addEventListener('DOMContentLoaded', loadBonds);
+</script>
+{% endblock %}

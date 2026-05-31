@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}{{ bond.name }} — Oblivion{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        {% if basket %}
+        <li class="breadcrumb-item"><a href="/basket/{{ basket.id }}">{{ basket.name }}</a></li>
+        {% endif %}
+        <li class="breadcrumb-item active">{{ bond.name }}</li>
+    </ol>
+</nav>
+
+<h4>{{ bond.name }}</h4>
+<p class="text-muted">
+    {% if bond.isin %}ISIN: {{ bond.isin }} | {% endif %}
+    {% if bond.figi %}FIGI: {{ bond.figi }} | {% endif %}
+    {% if bond.ticker %}Ticker: {{ bond.ticker }}{% endif %}
+</p>
+
+<div class="row">
+    <!-- Bond properties -->
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Bond Properties</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <tr><td class="text-muted">Rating</td><td class="fw-bold">{{ bond.rating or '-' }}</td></tr>
+                    <tr><td class="text-muted">Years to Maturity</td><td>{{ "%.2f"|format(bond.years_to_maturity) if bond.years_to_maturity else '-' }}</td></tr>
+                    <tr><td class="text-muted">Maturity Date</td><td>{{ bond.maturity_date or '-' }}</td></tr>
+                    <tr><td class="text-muted">Offer Date</td><td>{{ bond.offer_date or '-' }}</td></tr>
+                    <tr><td class="text-muted">YTM</td><td>{{ "%.2f"|format(bond.ytm_percent) if bond.ytm_percent else '-' }}%</td></tr>
+                    <tr><td class="text-muted">Duration (years)</td><td>{{ "%.2f"|format(bond.duration_years) if bond.duration_years else '-' }}</td></tr>
+                    <tr><td class="text-muted">Coupon (₽)</td><td>{{ "%.2f"|format(bond.coupon_rub) if bond.coupon_rub else '-' }}</td></tr>
+                    <tr><td class="text-muted">Frequency</td><td>{{ bond.frequency_per_year or '-' }} per year</td></tr>
+                    <tr><td class="text-muted">Annual Coupon Yield</td><td>{{ "%.2f"|format(bond.annual_coupon_yield) if bond.annual_coupon_yield else '-' }}%</td></tr>
+                    <tr><td class="text-muted">NKD (₽)</td><td>{{ "%.2f"|format(bond.nkd_rub) if bond.nkd_rub else '-' }}</td></tr>
+                    <tr><td class="text-muted">Nominal (₽)</td><td>{{ "%.0f"|format(bond.nominal_rub) }}</td></tr>
+                    <tr><td class="text-muted">Currency</td><td>{{ bond.currency }}</td></tr>
+                    <tr><td class="text-muted">Volume (mln ₽)</td><td>{{ "%.1f"|format(bond.volume_mln_rub) if bond.volume_mln_rub else '-' }}</td></tr>
+                    <tr><td class="text-muted">Price (% of nominal)</td><td>{{ "%.2f"|format(bond.price_percent) if bond.price_percent else '-' }}%</td></tr>
+                    {% if bond.is_floating_coupon %}<tr><td colspan="2" class="text-warning">⚠ Floating coupon</td></tr>{% endif %}
+                    {% if bond.is_amortizing %}<tr><td colspan="2" class="text-warning">⚠ Amortizing</td></tr>{% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Valuation results -->
+    <div class="col-md-6">
+        {% if valuation %}
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Valuation Results</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <tr class="table-secondary">
+                        <td class="text-muted">Discount Rate</td>
+                        <td>{{ "%.2f"|format(valuation.discount_rate * 100) }}%
+                            <small class="text-muted">(KR {{ "%.1f"|format(valuation.key_rate_used * 100) }}% + π {{ "%.1f"|format(valuation.inflation_premium_used * 100) }}% + ρ {{ "%.1f"|format(valuation.risk_premium_used * 100) }}%)</small>
+                        </td>
+                    </tr>
+                    <tr {% if valuation.formula_used == 'basic_dcf' %}class="table-primary"{% endif %}>
+                        <td class="text-muted">Basic DCF</td>
+                        <td>{{ "%.2f"|format(valuation.calc_basic_dcf) if valuation.calc_basic_dcf else '-' }} ₽</td>
+                    </tr>
+                    <tr {% if valuation.formula_used == 'freq_adjusted' %}class="table-primary"{% endif %}>
+                        <td class="text-muted">Frequency-Adjusted DCF</td>
+                        <td>{{ "%.2f"|format(valuation.calc_freq_adjusted) if valuation.calc_freq_adjusted else '-' }} ₽</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Reinvestment DCF</td>
+                        <td>{{ "%.2f"|format(valuation.calc_reinvestment) if valuation.calc_reinvestment else '-' }} ₽</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Tax-Adjusted DCF (13%)</td>
+                        <td>{{ "%.2f"|format(valuation.calc_tax_adjusted) if valuation.calc_tax_adjusted else '-' }} ₽</td>
+                    </tr>
+                    <tr {% if valuation.formula_used == 'zero_coupon' %}class="table-primary"{% endif %}>
+                        <td class="text-muted">Zero-Coupon Value</td>
+                        <td>{{ "%.2f"|format(valuation.calc_zero_coupon) if valuation.calc_zero_coupon else '-' }} ₽</td>
+                    </tr>
+                    <tr {% if valuation.formula_used == 'perpetual' %}class="table-primary"{% endif %}>
+                        <td class="text-muted">Perpetual Value</td>
+                        <td>{{ "%.2f"|format(valuation.calc_perpetual) if valuation.calc_perpetual else '-' }} ₽</td>
+                    </tr>
+                    <tr class="table-dark">
+                        <td>Primary ({{ valuation.formula_used }})</td>
+                        <td class="fw-bold">{{ "%.2f"|format(valuation.calc_primary) if valuation.calc_primary else '-' }} ₽</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Market Comparison</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <tr>
+                        <td class="text-muted">Market Price</td>
+                        <td>{{ "%.2f"|format(valuation.market_price_rub) if valuation.market_price_rub else '-' }} ₽</td>
+                    </tr>
+                    <tr class="{% if valuation.color == 'green' %}color-green{% elif valuation.color == 'red' %}color-red{% elif valuation.color == 'yellow' %}color-yellow{% endif %}">
+                        <td class="text-muted">Δ Price</td>
+                        <td class="fw-bold">{{ "%.1f"|format(valuation.delta_price) if valuation.delta_price is not none else '-' }}%</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Δ Yield (vs basket avg)</td>
+                        <td>{{ "%+.2f"|format(valuation.delta_yield) if valuation.delta_yield is not none else '-' }}%</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Δ Curve (vs yield curve)</td>
+                        <td>{{ "%.2f"|format(valuation.delta_curve) if valuation.delta_curve is not none else '-' }}
+                            {% if valuation.delta_curve_zscore is not none %}
+                            <small class="text-muted">(z={{ "%.1f"|format(valuation.delta_curve_zscore) }})</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Risk-Adjusted Yield</td>
+                        <td>{{ "%.2f"|format(valuation.risk_adjusted_yield) if valuation.risk_adjusted_yield is not none else '-' }}</td>
+                    </tr>
+                    {% if valuation.anomaly_code %}
+                    <tr class="table-warning">
+                        <td class="text-muted">Anomaly</td>
+                        <td>
+                            <span class="badge
+                                {% if valuation.anomaly_code == 'P+Y+' %}bg-success
+                                {% elif valuation.anomaly_code == 'P+' %}bg-warning text-dark
+                                {% elif valuation.anomaly_code == 'Y+' %}bg-info text-dark
+                                {% elif valuation.anomaly_code == 'C+' %}bg-primary
+                                {% else %}bg-dark{% endif %}">
+                                {{ valuation.anomaly_code }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+
+        {% if basket %}
+        <div class="card mb-3">
+            <div class="card-header fw-bold">Basket: <a href="/basket/{{ basket.id }}">{{ basket.name }}</a></div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <tr><td class="text-muted">Bonds in basket</td><td>{{ basket.bond_count }}</td></tr>
+                    <tr><td class="text-muted">Avg Price (₽)</td><td>{{ "%.2f"|format(basket.avg_price_rub) if basket.avg_price_rub else '-' }}</td></tr>
+                    <tr><td class="text-muted">Avg YTM</td><td>{{ "%.2f"|format(basket.avg_ytm) if basket.avg_ytm else '-' }}%</td></tr>
+                    <tr><td class="text-muted">Std YTM</td><td>{{ "%.2f"|format(basket.std_ytm) if basket.std_ytm else '-' }}%</td></tr>
+                    <tr><td class="text-muted">Avg Duration</td><td>{{ "%.2f"|format(basket.avg_duration) if basket.avg_duration else '-' }}</td></tr>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="alert alert-info">No valuation data. Run the pipeline first.</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

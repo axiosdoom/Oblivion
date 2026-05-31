@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}{{ basket.name }} — Oblivion{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/">Dashboard</a></li>
+        <li class="breadcrumb-item active">{{ basket.name }}</li>
+    </ol>
+</nav>
+
+<h4>Basket: {{ basket.name }}</h4>
+
+<!-- Stats -->
+<div class="row mb-3">
+    <div class="col"><div class="card p-2 text-center"><div class="small text-muted">Bonds</div><div class="fw-bold">{{ basket.bond_count }}</div></div></div>
+    <div class="col"><div class="card p-2 text-center"><div class="small text-muted">Avg Price ₽</div><div class="fw-bold">{{ "%.1f"|format(basket.avg_price_rub) if basket.avg_price_rub else '-' }}</div></div></div>
+    <div class="col"><div class="card p-2 text-center"><div class="small text-muted">Avg YTM %</div><div class="fw-bold">{{ "%.2f"|format(basket.avg_ytm) if basket.avg_ytm else '-' }}</div></div></div>
+    <div class="col"><div class="card p-2 text-center"><div class="small text-muted">Std YTM %</div><div class="fw-bold">{{ "%.2f"|format(basket.std_ytm) if basket.std_ytm else '-' }}</div></div></div>
+    <div class="col"><div class="card p-2 text-center"><div class="small text-muted">Avg Duration</div><div class="fw-bold">{{ "%.2f"|format(basket.avg_duration) if basket.avg_duration else '-' }}</div></div></div>
+</div>
+
+<!-- Yield curve chart -->
+<div class="card mb-3">
+    <div class="card-header fw-bold">Yield Curve (Duration vs YTM)</div>
+    <div class="card-body">
+        <canvas id="yieldCurveChart" height="100"></canvas>
+    </div>
+</div>
+
+<!-- Bond table -->
+<div class="card">
+    <div class="card-header fw-bold">Bonds in Basket</div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>Name</th>
+                    <th>Rating</th>
+                    <th>Years</th>
+                    <th>Price %</th>
+                    <th>Calc ₽</th>
+                    <th>Market ₽</th>
+                    <th>Δ Price %</th>
+                    <th>YTM %</th>
+                    <th>Δ Yield</th>
+                    <th>Yield</th>
+                    <th>Duration</th>
+                    <th>Anomaly</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for bond, val in bonds_vals %}
+                <tr class="{% if val and val.color == 'green' %}color-green{% elif val and val.color == 'red' %}color-red{% elif val and val.color == 'yellow' %}color-yellow{% endif %}">
+                    <td><a href="/bond/{{ bond.id }}">{{ bond.name }}</a></td>
+                    <td>{{ bond.rating or '-' }}</td>
+                    <td>{{ "%.1f"|format(bond.years_to_maturity) if bond.years_to_maturity else '-' }}</td>
+                    <td>{{ "%.1f"|format(bond.price_percent) if bond.price_percent else '-' }}</td>
+                    <td>{{ "%.1f"|format(val.calc_primary) if val and val.calc_primary else '-' }}</td>
+                    <td>{{ "%.1f"|format(val.market_price_rub) if val and val.market_price_rub else '-' }}</td>
+                    <td><strong>{{ "%.1f"|format(val.delta_price) if val and val.delta_price is not none else '-' }}</strong></td>
+                    <td>{{ "%.1f"|format(bond.ytm_percent) if bond.ytm_percent else '-' }}</td>
+                    <td>{{ "%+.2f"|format(val.delta_yield) if val and val.delta_yield is not none else '-' }}</td>
+                    <td>
+                        {% if val and val.yield_symbol %}
+                            {% if '↑' in val.yield_symbol %}<span class="yield-symbol yield-up">{{ val.yield_symbol }}</span>
+                            {% elif '↓' in val.yield_symbol %}<span class="yield-symbol yield-down">{{ val.yield_symbol }}</span>
+                            {% else %}<span class="yield-symbol yield-neutral">{{ val.yield_symbol }}</span>{% endif %}
+                        {% else %}-{% endif %}
+                    </td>
+                    <td>{{ "%.2f"|format(bond.duration_years) if bond.duration_years else '-' }}</td>
+                    <td>
+                        {% if val and val.anomaly_code %}
+                        <span class="badge {% if val.anomaly_code == 'P+Y+' %}bg-danger{% elif val.anomaly_code == 'P+' %}bg-warning text-dark{% elif val.anomaly_code == 'Y+' %}bg-info text-dark{% elif val.anomaly_code == 'C+' %}bg-primary{% else %}bg-dark{% endif %}">{{ val.anomaly_code }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+fetch('/api/yield-curve/{{ basket.id }}')
+    .then(r => r.json())
+    .then(data => {
+        const ctx = document.getElementById('yieldCurveChart').getContext('2d');
+        const scatter = data.points.map(p => ({ x: p.duration, y: p.ytm, label: p.name }));
+        const line = data.curve.map(p => ({ x: p.duration, y: p.ytm }));
+
+        new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: 'Bonds',
+                        data: scatter,
+                        backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                        pointRadius: 5,
+                    },
+                    {
+                        label: 'Fitted Curve',
+                        data: line,
+                        type: 'line',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.4,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: 'Duration (years)' } },
+                    y: { title: { display: true, text: 'YTM (%)' } }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                if (ctx.dataset.label === 'Bonds' && ctx.raw.label) {
+                                    return ctx.raw.label + ': ' + ctx.raw.y.toFixed(1) + '%';
+                                }
+                                return ctx.raw.y.toFixed(1) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

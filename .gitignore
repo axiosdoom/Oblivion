@@ -2,9 +2,23 @@
 app_secrets.py
 secrets.py
 *.env
+.env
+
+# python
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+
+# IDE
 .idea/
+.vscode/
+*.swp
+
+# database
+oblivion.db
+
+# OS
+.DS_Store
 
 
