@@ -35,6 +35,16 @@
                     <input type="number" id="filter-min-ytm" class="form-control form-control-sm"
                            step="0.5" placeholder="e.g. 15">
                 </div>
+
+                                <div class="mb-2">
+                    <label class="form-label small fw-bold mb-1">Coupon type</label>
+                    <select id="filter-coupon-type" class="form-select form-select-sm" onchange="applyFilters()">
+                        <option value="all">All</option>
+                        <option value="fixed">Fixed only</option>
+                        <option value="floating">Floating only</option>
+                    </select>
+                </div>
+
                 <div class="form-check mb-2">
                     <input type="checkbox" class="form-check-input" id="filter-anomaly" onchange="applyFilters()">
                     <label class="form-check-label small" for="filter-anomaly">Anomalies only</label>
@@ -128,12 +138,14 @@ function loadBonds() {
     const sortBy = document.getElementById('filter-sort').value;
     const minYtm = document.getElementById('filter-min-ytm').value;
     const anomalyOnly = document.getElementById('filter-anomaly').checked;
+    const couponType = document.getElementById('filter-coupon-type').value;
 
     if (basketId) params.set('basket_id', basketId);
     if (sortBy) params.set('sort_by', sortBy);
     params.set('sort_dir', 'desc');
     if (minYtm) params.set('min_ytm', minYtm);
     if (anomalyOnly) params.set('anomaly_only', 'true');
+    if (couponType !== 'all') params.set('coupon_type', couponType);
 
     fetch('/api/bonds?' + params.toString())
         .then(r => r.json())

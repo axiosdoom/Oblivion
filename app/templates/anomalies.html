@@ -28,17 +28,17 @@
     <table class="table table-sm table-hover table-bordered">
         <thead class="table-dark">
             <tr>
-                <th>Bond</th>
-                <th>Rating</th>
-                <th>Anomaly</th>
-                <th>Δ Price %</th>
-                <th>Δ Yield %</th>
-                <th>Δ Curve z</th>
-                <th>YTM %</th>
-                <th>Duration</th>
-                <th>Color</th>
-                <th>Yield</th>
-                <th>Basket</th>
+                <th title="Bond name, click to view details">Bond</th>
+                <th title="Credit rating (AAA to D)">Rating</th>
+                <th title="Anomaly codes: P+Y+ (green, best signal), P+ (yellow, price), Y+ (blue, yield), C+ (dark blue, curve)">Anomaly</th>
+                <th title="Price deviation: |Calculated - Market|/Market. >10% = P+ anomaly">Δ Price %</th>
+                <th title="Yield deviation from basket average. >1% = Y+ anomaly">Δ Yield %</th>
+                <th title="Deviation from fitted yield curve. |z|>2.5 = C+ anomaly">Δ Curve z</th>
+                <th title="Yield to Maturity (annual)">YTM %</th>
+                <th title="Modified duration in years (price sensitivity to rate changes)">Duration</th>
+                <th title="Valuation status: undervalued (green), overvalued (red), conditions (yellow), fair (gray)">Color</th>
+                <th title="Yield symbol: ↑↑ (>1%), ↑ (0.5-1%), → (±0.5%), ↓ (-0.5 to -1%), ↓↓ (<-1%)">Yield</th>
+                <th title="View bonds in same basket">Basket</th>
             </tr>
         </thead>
         <tbody>
@@ -56,7 +56,19 @@
                 <td>{{ "%.1f"|format(val.delta_curve_zscore) if val.delta_curve_zscore is not none else '-' }}</td>
                 <td>{{ "%.1f"|format(bond.ytm_percent) if bond.ytm_percent else '-' }}</td>
                 <td>{{ "%.2f"|format(bond.duration_years) if bond.duration_years else '-' }}</td>
-                <td>{{ val.color or '-' }}</td>
+                <td>
+                    {% if val.color == 'undervalued' %}
+                        <span class="badge bg-success">undervalued</span>
+                    {% elif val.color == 'overvalued' %}
+                        <span class="badge bg-danger">overvalued</span>
+                    {% elif val.color == 'conditions' %}
+                        <span class="badge bg-warning text-dark">conditions</span>
+                    {% elif val.color == 'fair' %}
+                        <span class="badge bg-secondary">fair</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ val.color or '-' }}</span>
+                    {% endif %}
+                </td>
                 <td>
                     {% if val.yield_symbol %}
                         {% if '↑' in val.yield_symbol %}<span class="yield-symbol yield-up">{{ val.yield_symbol }}</span>

@@ -27,6 +27,7 @@ def list_bonds(
     anomaly_only: bool = False,
     sort_by: str = "delta_price",
     sort_dir: str = "desc",
+    coupon_type: str | None = None,
     db: Session = Depends(get_db),
 ):
     q = db.query(Bond, Valuation).outerjoin(Valuation, Bond.id == Valuation.bond_id)
@@ -46,6 +47,11 @@ def list_bonds(
 
     if anomaly_only:
         q = q.filter(Valuation.anomaly_code.isnot(None), Valuation.anomaly_code != 'R')
+
+    if coupon_type == 'fixed':
+        q = q.filter(Bond.is_floating_coupon == False)
+    elif coupon_type == 'floating':
+        q = q.filter(Bond.is_floating_coupon == True)
 
     sort_col = {
         "delta_price": Valuation.delta_price,
